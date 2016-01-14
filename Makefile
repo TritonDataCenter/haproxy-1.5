@@ -34,6 +34,7 @@
 #   USE_ZLIB             : enable zlib library support.
 #   USE_CPU_AFFINITY     : enable pinning processes to CPU on Linux. Automatic.
 #   USE_TFO              : enable TCP fast open. Supported on Linux >= 3.7.
+#   USE_EVPORTS          : enable event ports on SunOS systems. Automatic.
 #
 # Options can be forced by specifying "USE_xxx=1" or can be disabled by using
 # "USE_xxx=" (empty string).
@@ -267,7 +268,8 @@ ifeq ($(TARGET),solaris)
   # This is for Solaris 8
   # We also enable getaddrinfo() which works since solaris 8.
   USE_POLL       = implicit
-  TARGET_CFLAGS  = -fomit-frame-pointer -DFD_SETSIZE=65536 -D_REENTRANT
+  USE_EVPORTS    = implicit
+  TARGET_CFLAGS  = -fno-omit-frame-pointer -DFD_SETSIZE=65536 -D_REENTRANT
   TARGET_LDFLAGS = -lnsl -lsocket
   USE_TPROXY     = implicit
   USE_LIBCRYPT    = implicit
@@ -460,6 +462,12 @@ endif
 ifneq ($(USE_MY_EPOLL),)
 OPTIONS_CFLAGS += -DUSE_MY_EPOLL
 BUILD_OPTIONS  += $(call ignore_implicit,USE_MY_EPOLL)
+endif
+
+ifneq ($(USE_EVPORTS),)
+OPTIONS_CFLAGS += -DENABLE_EVPORTS
+OPTIONS_OBJS   += src/ev_evports.o
+BUILD_OPTIONS  += $(call ignore_implicit,USE_EVPORTS)
 endif
 
 ifneq ($(USE_KQUEUE),)
