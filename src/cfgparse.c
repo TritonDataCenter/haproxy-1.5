@@ -280,7 +280,7 @@ int str2listener(char *str, struct proxy *curproxy, struct bind_conf *bind_conf,
 		}
 
 		/* OK the address looks correct */
-		ss = *ss2;
+		memcpy(&ss, ss2, sizeof(ss));
 
 		for (; port <= end; port++) {
 			l = (struct listener *)calloc(1, sizeof(struct listener));
@@ -291,7 +291,7 @@ int str2listener(char *str, struct proxy *curproxy, struct bind_conf *bind_conf,
 			l->bind_conf = bind_conf;
 
 			l->fd = fd;
-			l->addr = ss;
+			memcpy(&l->addr, &ss, sizeof(ss));
 			l->xprt = &raw_sock;
 			l->state = LI_INIT;
 

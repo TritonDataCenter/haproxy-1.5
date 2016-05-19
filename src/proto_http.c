@@ -3220,15 +3220,15 @@ int http_handle_stats(struct session *s, struct channel *req)
 /* Sets the TOS header in IPv4 and the traffic class header in IPv6 packets
  * (as per RFC3260 #4 and BCP37 #4.2 and #5.2).
  */
-static inline void inet_set_tos(int fd, struct sockaddr_storage from, int tos)
+static inline void inet_set_tos(int fd, struct sockaddr_storage *from, int tos)
 {
 #ifdef IP_TOS
-	if (from.ss_family == AF_INET)
+	if (from->ss_family == AF_INET)
 		setsockopt(fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
 #endif
 #ifdef IPV6_TCLASS
-	if (from.ss_family == AF_INET6) {
-		if (IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6 *)&from)->sin6_addr))
+	if (from->ss_family == AF_INET6) {
+		if (IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6 *)from)->sin6_addr))
 			/* v4-mapped addresses need IP_TOS */
 			setsockopt(fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
 		else
@@ -3366,7 +3366,7 @@ http_req_get_intercept_rule(struct proxy *px, struct list *rules, struct session
 
 		case HTTP_REQ_ACT_SET_TOS:
 			if ((cli_conn = objt_conn(s->req->prod->end)) && conn_ctrl_ready(cli_conn))
-				inet_set_tos(cli_conn->t.sock.fd, cli_conn->addr.from, rule->arg.tos);
+				inet_set_tos(cli_conn->t.sock.fd, &cli_conn->addr.from, rule->arg.tos);
 			break;
 
 		case HTTP_REQ_ACT_SET_MARK:
@@ -3563,7 +3563,7 @@ http_res_get_intercept_rule(struct proxy *px, struct list *rules, struct session
 
 		case HTTP_RES_ACT_SET_TOS:
 			if ((cli_conn = objt_conn(s->req->prod->end)) && conn_ctrl_ready(cli_conn))
-				inet_set_tos(cli_conn->t.sock.fd, cli_conn->addr.from, rule->arg.tos);
+				inet_set_tos(cli_conn->t.sock.fd, &cli_conn->addr.from, rule->arg.tos);
 			break;
 
 		case HTTP_RES_ACT_SET_MARK:
