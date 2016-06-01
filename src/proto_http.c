@@ -3399,7 +3399,6 @@ http_req_get_intercept_rule(struct proxy *px, struct list *rules, struct session
 
 		case HTTP_REQ_ACT_SET_HDR:
 		case HTTP_REQ_ACT_ADD_HDR:
-			chunk_printf(&trash, "%s: ", rule->arg.hdr_add.name);
 			memcpy(trash.str, rule->arg.hdr_add.name, rule->arg.hdr_add.name_len);
 			trash.len = rule->arg.hdr_add.name_len;
 			trash.str[trash.len++] = ':';
