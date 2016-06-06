@@ -2908,7 +2908,7 @@ smp_fetch_sc_inc_gpc0(struct proxy *px, struct session *l4, void *l7, unsigned i
 	smp->flags = SMP_F_VOL_TEST;
 	smp->type = SMP_T_UINT;
 	smp->data.uint = 0;
-	if (stkctr_entry(stkctr) != NULL) {
+	if (stkctr && stkctr_entry(stkctr)) {
 		void *ptr;
 
 		/* First, update gpc0_rate if it's tracked. Second, update its
