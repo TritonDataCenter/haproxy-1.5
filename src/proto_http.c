@@ -11223,6 +11223,9 @@ smp_fetch_url32_src(struct proxy *px, struct session *l4, void *l7, unsigned int
 	struct chunk *temp;
 	struct connection *cli_conn = objt_conn(l4->si[0].end);
 
+	if (!cli_conn)
+		return 0;
+
 	if (!smp_fetch_url32(px, l4, l7, opt, args, smp, kw))
 		return 0;
 
