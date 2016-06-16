@@ -11227,8 +11227,8 @@ smp_fetch_url32_src(struct proxy *px, struct session *l4, void *l7, unsigned int
 		return 0;
 
 	temp = get_trash_chunk();
-	memcpy(temp->str + temp->len, &smp->data.uint, sizeof(smp->data.uint));
-	temp->len += sizeof(smp->data.uint);
+	*(unsigned int *)temp->str = htonl(smp->data.sint);
+	temp->len += sizeof(unsigned int);
 
 	switch (cli_conn->addr.from.ss_family) {
 	case AF_INET:
