@@ -4083,7 +4083,7 @@ option forwardfor [ except <network> ] [ header <name> ] [ if-none ]
   the frontend or the backend does not specify it, it wants the addition to be
   mandatory, so it wins.
 
-  Examples :
+  Example :
     # Public HTTP address also used by stunnel on the same machine
     frontend www
         mode http
