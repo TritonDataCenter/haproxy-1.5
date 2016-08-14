@@ -3337,7 +3337,7 @@ smp_fetch_sc_trackers(struct proxy *px, struct session *l4, void *l7, unsigned i
 
 	smp->flags = SMP_F_VOL_TEST;
 	smp->type = SMP_T_UINT;
-	smp->data.uint = stkctr_entry(stkctr)->ref_cnt;
+	smp->data.uint = stkctr_entry(stkctr) ? stkctr_entry(stkctr)->ref_cnt : 0;
 	return 1;
 }
 
