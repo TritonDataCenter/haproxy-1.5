@@ -791,6 +791,7 @@ static int sess_update_st_con_tcp(struct session *s, struct stream_interface *si
 		si->state = SI_ST_CER;
 
 		si_release_endpoint(si);
+		s->flags &= ~SN_ADDR_SET;
 
 		if (si->err_type)
 			return 0;
