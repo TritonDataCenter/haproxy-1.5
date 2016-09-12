@@ -251,6 +251,7 @@ void display_build_opts()
 
 #ifdef USE_ZLIB
 	printf("Built with zlib version : " ZLIB_VERSION "\n");
+	printf("Running on zlib version : %s\n", zlibVersion());
 #else /* USE_ZLIB */
 	printf("Built without zlib support (USE_ZLIB not set)\n");
 #endif
