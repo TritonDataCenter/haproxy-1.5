@@ -1323,7 +1323,7 @@ static struct session *peer_session_create(struct peer *peer, struct peer_sessio
 	LIST_DEL(&s->list);
 	pool_free2(pool2_session, s);
  out_close:
-	return s;
+	return NULL;
 }
 
 /*
