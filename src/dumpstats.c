@@ -4942,7 +4942,7 @@ static inline const char *get_conn_ctrl_name(const struct connection *conn)
 
 static inline const char *get_conn_xprt_name(const struct connection *conn)
 {
-	static char ptr[17];
+	static char ptr[19];
 
 	if (!conn_xprt_ready(conn))
 		return "NONE";
@@ -4960,7 +4960,7 @@ static inline const char *get_conn_xprt_name(const struct connection *conn)
 
 static inline const char *get_conn_data_name(const struct connection *conn)
 {
-	static char ptr[17];
+	static char ptr[19];
 
 	if (!conn->data)
 		return "NONE";
