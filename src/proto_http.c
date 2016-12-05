@@ -3908,8 +3908,6 @@ static int http_apply_redirect_rule(struct redirect_rule *rule, struct session *
 		trash.len += 14;
 		memcpy(trash.str + trash.len, rule->cookie_str, rule->cookie_len);
 		trash.len += rule->cookie_len;
-		memcpy(trash.str + trash.len, "\r\n", 2);
-		trash.len += 2;
 	}
 
 	/* add end of headers and the keep-alive/close status.
