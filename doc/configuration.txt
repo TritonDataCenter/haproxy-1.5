@@ -10403,7 +10403,7 @@ dst_port : integer
 
 fe_id : integer
   Returns an integer containing the current frontend's id. It can be used in
-  backends to check from which backend it was called, or to stick all users
+  backends to check from which frontend it was called, or to stick all users
   coming via a same frontend to the same server.
 
 sc_bytes_in_rate(<ctr>[,<table>]) : integer
