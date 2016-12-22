@@ -1490,7 +1490,9 @@ smp_fetch_nbsrv(struct proxy *px, struct session *l4, void *l7, unsigned int opt
 	smp->type = SMP_T_UINT;
 	px = args->data.prx;
 
-	if (px->srv_act)
+	if (px->state == PR_STSTOPPED)
+		smp->data.uint = 0;
+	else if (px->srv_act)
 		smp->data.uint = px->srv_act;
 	else if (px->lbprm.fbck)
 		smp->data.uint = 1;
