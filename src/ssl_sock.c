@@ -2238,8 +2238,10 @@ reneg_ok:
 				global.ssl_be_keys_max = global.ssl_be_keys_per_sec.curr_ctr;
 
 			/* check if session was reused, if not store current session on server for reuse */
-			if (objt_server(conn->target)->ssl_ctx.reused_sess)
+			if (objt_server(conn->target)->ssl_ctx.reused_sess) {
 				SSL_SESSION_free(objt_server(conn->target)->ssl_ctx.reused_sess);
+				objt_server(conn->target)->ssl_ctx.reused_sess = NULL;
+			}
 
 			objt_server(conn->target)->ssl_ctx.reused_sess = SSL_get1_session(conn->xprt_ctx);
 		}
