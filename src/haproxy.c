@@ -1609,7 +1609,7 @@ int main(int argc, char **argv)
 			if (global.mode & MODE_SYSTEMD) {
 				protocol_unbind_all();
 				for (proc = 0; proc < global.nbproc; proc++)
-					while (waitpid(children[proc], NULL, 0) == -1 && errno == EINTR);
+					while (waitpid(-1, NULL, 0) == -1 && errno == EINTR);
 			}
 			exit(0); /* parent must leave */
 		}
