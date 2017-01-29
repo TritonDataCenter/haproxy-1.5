@@ -55,9 +55,10 @@
 #define GTUNE_USE_POLL           (1<<1)
 #define GTUNE_USE_EPOLL          (1<<2)
 #define GTUNE_USE_KQUEUE         (1<<3)
+#define GTUNE_USE_EVPORTS        (1<<4)
 /* platform-specific options */
-#define GTUNE_USE_SPLICE         (1<<4)
-#define GTUNE_USE_GAI            (1<<5)
+#define GTUNE_USE_SPLICE         (1<<5)
+#define GTUNE_USE_GAI            (1<<6)
 
 /* Access level for a stats socket */
 #define ACCESS_LVL_NONE     0

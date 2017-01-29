@@ -474,6 +474,7 @@ The following keywords are supported in the "global" section :
    - maxsslconn
    - maxsslrate
    - noepoll
+   - noevports
    - nokqueue
    - nopoll
    - nosplice
@@ -852,6 +853,12 @@ noepoll
   equivalent to the command-line argument "-de". The next polling system
   used will generally be "poll". See also "nopoll".
 
+noevports
+  Disables the use of the event ports event polling system on SunOS systems
+  derived from Solaris 10 and later. It is equivalent to the command-line
+  argument "-dv". The next polling system used will generally be "poll". See
+  also "nopoll".
+
 nokqueue
   Disables the use of the "kqueue" event polling system on BSD. It is
   equivalent to the command-line argument "-dk". The next polling system
@@ -861,7 +868,8 @@ nopoll
   Disables the use of the "poll" event polling system. It is equivalent to the
   command-line argument "-dp". The next polling system used will be "select".
   It should never be needed to disable "poll" since it's available on all
-  platforms supported by HAProxy. See also "nokqueue" and "noepoll".
+  platforms supported by HAProxy. See also "nokqueue", "noepoll", and
+  "noevports".
 
 nosplice
   Disables the use of kernel tcp splicing between sockets on Linux. It is

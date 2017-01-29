@@ -1,7 +1,6 @@
 /*
- * FD polling functions for illumos Event Ports
+ * FD polling functions for SunOS event ports.
  *
- * Copyright 2000-2014 Willy Tarreau <w@1wt.eu>
  * Copyright 2016 Joyent, Inc.
  *
  * This program is free software; you can redistribute it and/or
@@ -10,6 +9,17 @@
  * 2 of the License, or (at your option) any later version.
  */
 
+/*
+ * The assertions in this file are cheap and we always want them enabled.
+ */
+#ifdef NDEBUG
+#undef NDEBUG
+#include <assert.h>
+#define NDEBUG
+#else
+#include <assert.h>
+#endif
+
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -17,7 +27,6 @@
 #include <poll.h>
 #include <port.h>
 #include <errno.h>
-#include <assert.h>
 #include <syslog.h>
 
 #include <common/compat.h>
@@ -30,18 +39,20 @@
 #include <proto/fd.h>
 #include <proto/signal.h>
 #include <proto/task.h>
+#include <proto/log.h>
 
-
-/* private data */
+/*
+ * Private data:
+ */
 static int evports_fd = -1;
-static port_event_t *evports_evlist;
+static port_event_t *evports_evlist = NULL;
 static int evports_evlist_max = 0;
+static int volatile evports_panic_errno = 0;
 
 /*
  * Convert the "state" member of "fdtab" into an event ports event mask.
  */
-static int
-evports_state_to_events(int state)
+static int evports_state_to_events(int state)
 {
 	int events = 0;
 
@@ -53,19 +64,28 @@ evports_state_to_events(int state)
 	return (events);
 }
 
-static void
-evports_resync_fd(int fd, int events)
+/*
+ * Associate or dissociate this file descriptor with the event port, using the
+ * specified event mask.  We are strict with failures, to ensure that we're not
+ * doing extra work.
+ */
+static void evports_resync_fd(int fd, int events)
 {
 	if (events == 0) {
 		if (port_dissociate(evports_fd, PORT_SOURCE_FD, fd) != 0) {
-			send_log(NULL, LOG_EMERG, "port_dissociate failure: fd %d: %s\n", fd, strerror(errno));
-			if (errno != ENOENT) {
-				abort();
-			}
+			evports_panic_errno = errno;
+			send_log(NULL, LOG_EMERG,
+			    "port_dissociate failure: fd %d: %s\n",
+			    fd, strerror(errno));
+			abort();
 		}
 	} else {
-		if (port_associate(evports_fd, PORT_SOURCE_FD, fd, events, NULL) != 0) {
-			send_log(NULL, LOG_EMERG, "port_associate failure: fd %d: %s\n", fd, strerror(errno));
+		if (port_associate(evports_fd, PORT_SOURCE_FD, fd, events,
+		    NULL) != 0) {
+			evports_panic_errno = errno;
+			send_log(NULL, LOG_EMERG,
+			    "port_associate failure: fd %d: %s\n",
+			    fd, strerror(errno));
 			abort();
 		}
 	}
@@ -74,14 +94,15 @@ evports_resync_fd(int fd, int events)
 /*
  * Event Ports poller
  */
-REGPRM2 static void evports_do_poll(struct poller *p, int exp)
+static void evports_do_poll(struct poller *p, int exp)
 {
 	int i;
 	int wait_time;
 	struct timespec timeout;
 	int r;
 	int e = 0;
-	unsigned int nevlist = 0;
+	unsigned int nevlist;
+	int interrupted = 0;
 
 	/*
 	 * Scan the list of file descriptors with an updated status:
@@ -103,7 +124,8 @@ REGPRM2 static void evports_do_poll(struct poller *p, int exp)
 		 * Check if the poll status has changed.  If it has, we need to
 		 * reassociate now.
 		 */
-		if ((stateold & FD_EV_POLLED_RW) != (statenew & FD_EV_POLLED_RW)) {
+		if ((stateold & FD_EV_POLLED_RW) !=
+		    (statenew & FD_EV_POLLED_RW)) {
 			int events = evports_state_to_events(statenew);
 
 			evports_resync_fd(fd, events);
@@ -135,20 +157,34 @@ REGPRM2 static void evports_do_poll(struct poller *p, int exp)
 	nevlist = 1;
 	if ((r = port_getn(evports_fd, evports_evlist, evports_evlist_max,
 	    &nevlist, &timeout)) != 0) {
-		/*
-		 * XXX lift dap's comment
-		 */
-		if ((e = errno) == ETIME) {
-			e = r = 0;
-		} else {
-			assert(e == EINTR);
+		switch (e = errno) {
+		case ETIME:
+			/*
+			 * Contrary to the manual page, port_getn() can return
+			 * -1 with errno == ETIME and still have returned
+			 *  events.
+			 */
+			e = 0;
+			r = 0;
+			if (nevlist == 0)
+				interrupted = 1;
+			break;
+
+		case EINTR:
+			nevlist = 0;
+			interrupted = 1;
+			break;
+
+		default:
+			evports_panic_errno = e;
+			send_log(NULL, LOG_EMERG,
+			    "port_getn failure: fd %d: %s\n",
+			    evports_fd, strerror(e));
+			abort();
 		}
 	}
-	tv_update_date(wait_time, (r == 0));
+	tv_update_date(wait_time, interrupted);
 	measure_idle();
-
-	if (r != 0)
-		return;
 
 	for (i = 0; i < nevlist; i++) {
 		int fd = evports_evlist[i].portev_object;
@@ -185,7 +221,10 @@ REGPRM2 static void evports_do_poll(struct poller *p, int exp)
 			fdtab[fd].ev |= FD_POLL_HUP;
 
 		/*
-		 * Call connection processing callbacks:
+		 * Call connection processing callbacks.  Note that it's
+		 * possible for this processing to alter the required event
+		 * port assocation; doing so will put that fd on the updated
+		 * list for processing the next time we are called.
 		 */
 		fd_process_polled_events(fd);
 
@@ -198,7 +237,8 @@ REGPRM2 static void evports_do_poll(struct poller *p, int exp)
 
 		/*
 		 * Reassociate with the port, using the same event mask as
-		 * before:
+		 * before.  This call will not result in a dissociation as we
+		 * asserted that _some_ events needed to be rebound above.
 		 */
 		evports_resync_fd(fd, rebind_events);
 	}
@@ -209,7 +249,7 @@ REGPRM2 static void evports_do_poll(struct poller *p, int exp)
  * Returns 0 in case of failure, non-zero in case of success. If it fails, it
  * disables the poller by setting its pref to 0.
  */
-REGPRM1 static int evports_do_init(struct poller *p)
+static int evports_do_init(struct poller *p)
 {
 	p->private = NULL;
 
@@ -236,10 +276,10 @@ fail:
  * Termination of the poll() poller.
  * Memory is released and the poller is marked as unselectable.
  */
-REGPRM1 static void evports_do_term(struct poller *p)
+static void evports_do_term(struct poller *p)
 {
 	if (evports_fd != -1) {
-		close(evports_fd);
+		assert(close(evports_fd) == 0);
 		evports_fd = -1;
 	}
 
@@ -255,19 +295,33 @@ REGPRM1 static void evports_do_term(struct poller *p)
  * Check that the poller works.
  * Returns 1 if OK, otherwise 0.
  */
-REGPRM1 static int evports_do_test(struct poller *p)
+static int evports_do_test(struct poller *p)
 {
+	int fd;
+
+	if ((fd = port_create()) == -1) {
+		return 0;
+	}
+
+	assert(close(fd) == 0);
 	return 1;
 }
 
-REGPRM1 static int evports_do_fork(struct poller *p)
+/*
+ * Close and recreate the event port after fork().  Returns 1 if OK, otherwise
+ * 0.  If this function fails, "evports_do_term()" will be called to clean up
+ * the poller.
+ */
+static int evports_do_fork(struct poller *p)
 {
 	if (evports_fd != -1) {
-		close(evports_fd);
+		assert(close(evports_fd) == 0);
 	}
+
 	if ((evports_fd = port_create()) == -1) {
 		return 0;
 	}
+
 	return 1;
 }
 
@@ -284,7 +338,10 @@ static void evports_do_register(void)
 	if (nbpollers >= MAX_POLLERS)
 		return;
 
-	evports_fd = -1;
+	assert(evports_fd == -1);
+	assert(evports_evlist == NULL);
+	assert(evports_evlist_max == 0);
+
 	p = &pollers[nbpollers++];
 
 	p->name = "evports";
@@ -297,11 +354,3 @@ static void evports_do_register(void)
 	p->fork = evports_do_fork;
 	p->poll = evports_do_poll;
 }
-
-
-/*
- * Local variables:
- *  c-indent-level: 8
- *  c-basic-offset: 8
- * End:
- */
